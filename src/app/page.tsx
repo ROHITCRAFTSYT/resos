@@ -6,12 +6,49 @@ import { useRouter } from 'next/navigation';
 import { renderCanvas, destroyCanvas } from '@/lib/canvasTrail';
 import { HoverButton } from '@/components/HoverButton';
 import { MarqueeAnimation } from '@/components/MarqueeAnimation';
-import { getSession, signOut } from '@/lib/supabase';
+import { getSession, signOut, supabase } from '@/lib/supabase';
+import type { DbService, DbIncident } from '@/lib/supabase';
 
 export default function HeroPage() {
   const router = useRouter();
   const [scrambleTrigger] = useState(true);
   const [subTrigger, setSubTrigger] = useState(false);
+
+  // ── Live stats ─────────────────────────────────────────────────────────────
+  const [liveStats, setLiveStats] = useState({
+    services: 24,
+    uptime: '99.7%',
+    incidents: 0,
+    loaded: false,
+  });
+
+  useEffect(() => {
+    async function fetchStats() {
+      const [{ data: svcs }, { data: incs }] = await Promise.all([
+        supabase.from('services').select('uptime_percent'),
+        supabase
+          .from('incidents')
+          .select('id, resolved, created_at')
+          .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
+      ]);
+
+      const rows = svcs as Pick<DbService, 'uptime_percent'>[] | null;
+      const incRows = incs as Pick<DbIncident, 'id' | 'resolved' | 'created_at'>[] | null;
+
+      if (!rows || rows.length === 0) return; // stay on defaults if DB not connected
+
+      const avgUptime = rows.reduce((acc, s) => acc + s.uptime_percent, 0) / rows.length;
+      const todayIncidents = (incRows ?? []).filter((i) => !i.resolved).length;
+
+      setLiveStats({
+        services: rows.length,
+        uptime: `${avgUptime.toFixed(1)}%`,
+        incidents: todayIncidents,
+        loaded: true,
+      });
+    }
+    fetchStats();
+  }, []);
 
   // ── Auth state ─────────────────────────────────────────────────────────────
   const [isLoggedIn, setIsLoggedIn]   = useState(false);
@@ -200,12 +237,14 @@ export default function HeroPage() {
             {/* Stats row — desktop only */}
             <div className="hidden lg:grid grid-cols-3 gap-4 mb-6 border border-white/10 p-3 bg-black/30 backdrop-blur-sm">
               {[
-                { label: 'SERVICES TRACKED', value: '24' },
-                { label: 'UPTIME', value: '99.7%' },
-                { label: 'INCIDENTS TODAY', value: '0' },
+                { label: 'SERVICES TRACKED', value: String(liveStats.services) },
+                { label: 'UPTIME', value: liveStats.uptime },
+                { label: 'INCIDENTS TODAY', value: String(liveStats.incidents) },
               ].map((stat) => (
                 <div key={stat.label} className="text-center">
-                  <div className="text-lg font-bold font-mono text-green-400">{stat.value}</div>
+                  <div className={`text-lg font-bold font-mono transition-colors ${!liveStats.loaded ? 'text-green-400/40 animate-pulse' : stat.label === 'INCIDENTS TODAY' && liveStats.incidents > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                    {stat.value}
+                  </div>
                   <div className="text-[9px] font-mono text-white/40 mt-0.5">{stat.label}</div>
                 </div>
               ))}
@@ -307,7 +346,7 @@ export default function HeroPage() {
               <div className="w-1 h-1 bg-green-400/40 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
               <div className="w-1 h-1 bg-green-400/20 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }} />
             </div>
-            <span className="hidden lg:inline">UPTIME: 99.7%</span>
+            <span className="hidden lg:inline">UPTIME: {liveStats.uptime}</span>
           </div>
         </div>
       </div>
