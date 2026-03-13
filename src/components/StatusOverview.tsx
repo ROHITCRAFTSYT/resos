@@ -126,8 +126,8 @@ export default function StatusOverview({ services }: StatusOverviewProps) {
                 key={i}
                 className={`flex-1 rounded-[1px] transition-all duration-1000 ${barColor[bar.variant]}`}
                 style={{
-                  height: `${bar.h * 100}%`,
-                  opacity: 0.12 + (i / 60) * 0.88,
+                  height: `${+(bar.h * 100).toFixed(4)}%`,
+                  opacity: +(0.12 + (i / 60) * 0.88).toFixed(4),
                 }}
               />
             ))}

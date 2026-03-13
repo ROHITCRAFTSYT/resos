@@ -20,6 +20,9 @@ interface IncidentFeedProps {
 }
 
 // ─── Derive incidents from current service state (used as offline fallback) ──
+// Priority order: outage > chaos > degraded, then stable by service name
+const TYPE_PRIORITY = { outage: 0, chaos: 1, degraded: 2, restored: 3 };
+
 export function generateIncidents(services: GovService[]): Incident[] {
   const incidents: Incident[] = [];
   services.forEach((s) => {
@@ -29,7 +32,8 @@ export function generateIncidents(services: GovService[]): Incident[] {
         serviceName: s.name,
         type: 'outage',
         message: `${s.name} is experiencing a complete outage. ${s.fallbacks.length} fallback routes available.`,
-        timestamp: Date.now() - Math.random() * 600_000,
+        timestamp: 1, // stable non-zero; timeAgo overridden below
+        timeAgo: 'just now',
       });
     }
     if (s.status === 'degraded') {
@@ -38,7 +42,8 @@ export function generateIncidents(services: GovService[]): Incident[] {
         serviceName: s.name,
         type: 'degraded',
         message: `${s.name} is responding slowly (${Math.round(s.latency)}ms). Investigating root cause.`,
-        timestamp: Date.now() - Math.random() * 900_000,
+        timestamp: 1,
+        timeAgo: 'just now',
       });
     }
     if (s.chaosActive) {
@@ -47,11 +52,16 @@ export function generateIncidents(services: GovService[]): Incident[] {
         serviceName: s.name,
         type: 'chaos',
         message: `CHAOS INJECTION active on ${s.name}. Resilience test in progress.`,
-        timestamp: Date.now() - Math.random() * 120_000,
+        timestamp: 1,
+        timeAgo: 'just now',
       });
     }
   });
-  return incidents.sort((a, b) => b.timestamp - a.timestamp);
+  // Stable sort: by type priority first, then by service name (alphabetical)
+  return incidents.sort((a, b) =>
+    (TYPE_PRIORITY[a.type] ?? 9) - (TYPE_PRIORITY[b.type] ?? 9) ||
+    (a.serviceName ?? '').localeCompare(b.serviceName ?? '')
+  );
 }
 
 // ─── Type display config ───────────────────────────────────────────────────────

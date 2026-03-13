@@ -53,10 +53,12 @@ export default function ServiceCard({ service, onSimulateOutage, onRestoreServic
       )}
 
       {/* ── Card Header (always visible, click to expand) ──────────────── */}
-      <button
-        type="button"
-        className="w-full text-left p-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors duration-150"
+      <div
+        role="button"
+        tabIndex={0}
+        className="p-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors duration-150 cursor-pointer select-none"
         onClick={() => setExpanded((v) => !v)}
+        onKeyDown={(e) => e.key === 'Enter' || e.key === ' ' ? setExpanded((v) => !v) : null}
         aria-expanded={expanded}
       >
         {/* Status dot */}
@@ -147,7 +149,7 @@ export default function ServiceCard({ service, onSimulateOutage, onRestoreServic
         >
           ▼
         </div>
-      </button>
+      </div>
 
       {/* ── Expandable section (animated) ─────────────────────────────── */}
       <AnimatePresence initial={false}>
@@ -230,8 +232,10 @@ export default function ServiceCard({ service, onSimulateOutage, onRestoreServic
               )}
 
               {/* Last checked timestamp */}
-              <div className="text-[8px] text-white/20 text-right tabular-nums">
-                LAST CHECK: {new Date(service.lastChecked).toLocaleTimeString()}
+              <div className="text-[8px] text-white/20 text-right tabular-nums" suppressHydrationWarning>
+                {service.lastChecked > 0
+                  ? `LAST CHECK: ${new Date(service.lastChecked).toLocaleTimeString()}`
+                  : 'LAST CHECK: LOADING...'}
               </div>
             </div>
           </motion.div>

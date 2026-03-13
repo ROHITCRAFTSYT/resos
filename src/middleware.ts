@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const PROTECTED = ['/dashboard'];
+const PROTECTED: string[] = []; // dashboard is public for demo
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

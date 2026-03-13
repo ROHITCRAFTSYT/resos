@@ -19,14 +19,41 @@ export interface GovService {
   name: string;
   category: string;
   status: ServiceStatus;
-  latency: number; // ms
-  uptime: number;  // percent
+  latency: number;
+  uptime: number;
   lastChecked: number;
   region: string;
   fallbacks: Fallback[];
   history: ServiceMetric[];
   chaosActive?: boolean;
   description: string;
+}
+
+// ─── Deterministic pseudo-random — avoids SSR/client hydration mismatch ──────
+// Same seed always returns the same value in [0, 1). No Math.random() here.
+function det(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function makeHistory(
+  length: number,
+  baseLatency: number,
+  jitter: number,
+  baseUptime: number,
+  uptimeJitter: number,
+  seedOffset: number,
+  outageAfter?: number,
+): ServiceMetric[] {
+  return Array.from({ length }, (_, i) => ({
+    timestamp: 0, // filled in client-side after mount to avoid Date.now() mismatch
+    latency: (outageAfter !== undefined && i >= outageAfter)
+      ? 0
+      : baseLatency + det(seedOffset + i) * jitter,
+    uptime: (outageAfter !== undefined && i >= outageAfter)
+      ? 0
+      : baseUptime + det(seedOffset + i + 50) * uptimeJitter,
+  }));
 }
 
 export const INITIAL_SERVICES: GovService[] = [
@@ -37,18 +64,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'operational',
     latency: 142,
     uptime: 99.9,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-CENTRAL',
     description: 'Online passport application and renewal services',
     fallbacks: [
       { label: 'Offline Centre Locator', url: '#', description: 'Find nearest Passport Seva Kendra' },
       { label: 'IVR Helpline', url: '#', description: 'Call 1800-258-1800 for manual assistance' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 120 + Math.random() * 80,
-      uptime: 99.5 + Math.random() * 0.5,
-    })),
+    history: makeHistory(20, 120, 80, 99.5, 0.5, 1),
   },
   {
     id: 'income-tax',
@@ -57,18 +80,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'operational',
     latency: 218,
     uptime: 99.1,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-NORTH',
     description: 'ITR filing, tax payment, and refund tracking',
     fallbacks: [
       { label: 'e-Filing Offline Tool', url: '#', description: 'Download and use offline ITR utility' },
       { label: 'CPC Helpline', url: '#', description: '1800-103-0025 for filing support' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 180 + Math.random() * 120,
-      uptime: 99 + Math.random() * 0.5,
-    })),
+    history: makeHistory(20, 180, 120, 99, 0.5, 100),
   },
   {
     id: 'digilocker',
@@ -77,18 +96,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'degraded',
     latency: 890,
     uptime: 96.4,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-EAST',
     description: 'Digital document wallet for citizens',
     fallbacks: [
       { label: 'UMANG App', url: '#', description: 'Access documents via UMANG mobile app' },
       { label: 'Physical Document', url: '#', description: 'Carry original documents as backup' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 400 + Math.random() * 800,
-      uptime: 95 + Math.random() * 2,
-    })),
+    history: makeHistory(20, 400, 800, 95, 2, 200),
   },
   {
     id: 'umang',
@@ -97,17 +112,13 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'operational',
     latency: 165,
     uptime: 99.5,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-WEST',
     description: 'Unified mobile application for government services',
     fallbacks: [
       { label: 'Individual Portals', url: '#', description: 'Access department-specific portals directly' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 140 + Math.random() * 60,
-      uptime: 99 + Math.random() * 0.5,
-    })),
+    history: makeHistory(20, 140, 60, 99, 0.5, 300),
   },
   {
     id: 'cowin',
@@ -116,18 +127,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'operational',
     latency: 198,
     uptime: 98.7,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-SOUTH',
     description: 'Health records, vaccination, and appointment booking',
     fallbacks: [
       { label: 'ABHA Helpline', url: '#', description: '1800-11-4477 for health ID support' },
       { label: 'Hospital Direct', url: '#', description: 'Walk-in to nearest government hospital' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 170 + Math.random() * 80,
-      uptime: 98 + Math.random() * 1,
-    })),
+    history: makeHistory(20, 170, 80, 98, 1, 400),
   },
   {
     id: 'gst',
@@ -136,7 +143,7 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'outage',
     latency: 0,
     uptime: 71.2,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-CENTRAL',
     description: 'GST filing, returns, and compliance management',
     fallbacks: [
@@ -144,11 +151,7 @@ export const INITIAL_SERVICES: GovService[] = [
       { label: 'GST Helpdesk', url: '#', description: '1800-103-4786 for compliance support' },
       { label: 'GSTN Backup Portal', url: '#', description: 'Access mirror portal during downtime' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: i < 14 ? 200 + Math.random() * 100 : 0,
-      uptime: i < 14 ? 99 : 0,
-    })),
+    history: makeHistory(20, 200, 100, 99, 0, 500, 14),
   },
   {
     id: 'epf',
@@ -157,18 +160,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'operational',
     latency: 312,
     uptime: 98.2,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-CENTRAL',
     description: 'Employee Provident Fund withdrawals, transfers, and balance',
     fallbacks: [
       { label: 'EPFO Helpline', url: '#', description: '1800-118-005 for PF assistance' },
       { label: 'UMANG PF Access', url: '#', description: 'Check PF via UMANG app' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 280 + Math.random() * 100,
-      uptime: 97.5 + Math.random() * 1,
-    })),
+    history: makeHistory(20, 280, 100, 97.5, 1, 600),
   },
   {
     id: 'ration',
@@ -177,18 +176,14 @@ export const INITIAL_SERVICES: GovService[] = [
     status: 'degraded',
     latency: 1240,
     uptime: 94.1,
-    lastChecked: Date.now(),
+    lastChecked: 0,
     region: 'IN-EAST',
     description: 'PDS ration card management and food grain tracking',
     fallbacks: [
       { label: 'State NIC Portal', url: '#', description: 'Access state-level food department portal' },
       { label: 'FPS Locator', url: '#', description: 'Find Fair Price Shops in your area' },
     ],
-    history: Array.from({ length: 20 }, (_, i) => ({
-      timestamp: Date.now() - (20 - i) * 60000,
-      latency: 600 + Math.random() * 1200,
-      uptime: 92 + Math.random() * 4,
-    })),
+    history: makeHistory(20, 600, 1200, 92, 4, 700),
   },
 ];
 
@@ -228,9 +223,7 @@ export function getStatusLabel(status: ServiceStatus): string {
   }
 }
 
-// ─── DB → Client adapter ───────────────────────────────────────────────────
-// Converts a Supabase row into the GovService shape used by components.
-// The `history` field is generated client-side from recent latency readings.
+// ─── DB → Client adapter ──────────────────────────────────────────────────────
 export function dbToGovService(row: DbService, latencyHistory?: number[]): GovService {
   const history: ServiceMetric[] = (latencyHistory ?? [row.latency_ms]).map(
     (lat, i, arr) => ({
@@ -240,7 +233,6 @@ export function dbToGovService(row: DbService, latencyHistory?: number[]): GovSe
     })
   );
 
-  // Pad to at least 20 data points using the service's current latency (no fake noise)
   while (history.length < 20) {
     history.unshift({
       timestamp: history[0]?.timestamp - 60_000 || Date.now() - 1_200_000,
